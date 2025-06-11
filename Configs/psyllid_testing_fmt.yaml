@@ -1,0 +1,77 @@
+dripline_mesh:
+    broker: localhost
+    make-connection: true
+
+name: psyllid_reader
+
+use-relayer: false
+
+daq:
+    activate-at-startup: false
+    n-files: 1
+    max-file-size-mb: 1000
+
+streams:
+    ch1:
+        preset:
+            type: locust-trigger-stream
+            nodes:
+                - type: locust-egg-reader
+                  name: ler
+                - type: frequency-transform
+                  name: ft
+                - type: frequency-mask-trigger
+                  name: fmt
+                - type: event-builder
+                  name: eb
+                - type: triggered-writer
+                  name: trw
+            connections:
+                - "ler.out_0:ft.in_0"   # raw time_data -> FFT
+                - "ft.out_1:fmt.in_0"   # spectra       -> FMT
+                - "fmt.out_0:eb.in_0"   # trigger flag  -> Event-builder
+                - "eb.out_0:trw.in_1"   # cleaned flag  -> Writer (flag input)
+                - "ft.out_0:trw.in_0"   # original time_data -> Writer (data input)
+
+        device:
+            n-channels: 1
+            bit-depth: 8
+            data-type-size: 1
+            sample-size: 1
+            record-size: 4096
+            acq-rate: 100          # MHz
+            v-offset: -0.5
+            v-range: 1.0
+
+        ler:
+            length: 10000
+            egg-path: /root/data/Realistic_Mode_Map_RealNoise/locust_Angle89_Pos0.004_Energy18560.egg
+            read-n-records: 0
+            slice-length: 4096
+            uint-to-int: true
+
+        ft:
+            time-length: 5000                 
+            freq-length: 5000                  
+            fft-size: 4096 
+            start-paused: false
+            transform-flag: "estimate"         
+            use-wisdom: false
+
+        fmt:
+            length: 5000
+            n-packets-for-mask: 100
+            trigger-mode: "single-level"
+            mask-configuration: /root/data/Mask/fmt_mask_realnoise_2.yaml
+            threshold-ampl-snr: 10.0
+            n-spline-points: 20
+
+        eb:
+            pretrigger: 48
+            length: 5000
+            skip-tolerance: 120
+            n-triggers: 1
+
+        trw:
+            file-num: 0
+
